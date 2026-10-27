@@ -6,8 +6,6 @@
   <title>Fuel Consumption & Cost Tracker (km/L, ₱)</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -22,26 +20,31 @@
   </script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen py-8 px-4 sm:px-6">
-  <div class="max-w-6xl mx-auto space-y-6">
+  <div class="max-w-5xl mx-auto space-y-6">
 
-    <!-- Header & Backup / Restore Actions -->
-    <header class="flex flex-col md:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-800">
+    <!-- Header & BelBros-Style Backup/Restore Actions -->
+    <header class="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-800">
       <div>
         <h1 class="text-3xl font-bold tracking-tight text-brand-500">⛽ FuelTracker PH</h1>
         <p class="text-slate-400 text-sm mt-1">Track mileage, fuel economy (km/L), and fuel expenses (₱)</p>
       </div>
       
-      <!-- Backup & Restore Buttons -->
+      <!-- Backup & Restore Buttons (Exact BelBros Setup) -->
       <div class="flex items-center gap-2">
-        <button id="exportBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+        <button type="button" onclick="exportBackupJSON()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition shadow cursor-pointer">
           📥 Backup (JSON)
         </button>
-        <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer transition">
-          📤 Restore (JSON)
-          <input type="file" id="importInput" accept=".json" class="hidden" />
-        </label>
+
+        <button type="button" onclick="document.getElementById('backupFileInput').click()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition shadow cursor-pointer">
+          📤 Import / Restore
+        </button>
+
+        <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleFileImport(event)" />
       </div>
     </header>
+
+    <!-- Notification Toast -->
+    <div id="notificationToast" class="hidden p-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-all"></div>
 
     <!-- Top KPI Cards -->
     <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -67,13 +70,11 @@
       </div>
     </section>
 
-    <!-- Main Content: Form + Chart -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- Log Entry Form -->
-      <section class="bg-slate-800/60 p-6 rounded-2xl border border-slate-700/60 shadow-lg">
-        <h2 class="text-lg font-semibold mb-4 text-slate-200">➕ Add Fill-Up</h2>
-        <form id="entryForm" class="space-y-4">
+    <!-- Log Entry Form -->
+    <section class="bg-slate-800/60 p-6 rounded-2xl border border-slate-700/60 shadow-lg">
+      <h2 class="text-lg font-semibold mb-4 text-slate-200">➕ Add Fill-Up Record</h2>
+      <form id="entryForm" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label class="block text-xs font-medium text-slate-400 mb-1">Date</label>
             <input type="date" id="dateInput" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
@@ -84,39 +85,34 @@
             <input type="number" id="odometerInput" step="any" min="0" required placeholder="e.g. 15450" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-slate-400 mb-1">Fuel Added (L)</label>
-              <input type="number" id="volumeInput" step="0.01" min="0.1" required placeholder="e.g. 35.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-400 mb-1">Total Cost (₱)</label>
-              <input type="number" id="costInput" step="0.01" min="0.1" required placeholder="e.g. 2150.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
-            </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Fuel Added (L)</label>
+            <input type="number" id="volumeInput" step="0.01" min="0.01" required placeholder="e.g. 35.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
           </div>
 
-          <div class="flex items-center gap-2 pt-1">
-            <input type="checkbox" id="isFullTank" checked class="w-4 h-4 text-brand-500 rounded bg-slate-900 border-slate-700 focus:ring-0" />
-            <label for="isFullTank" class="text-xs text-slate-300 select-none">Full Tank (Uncheck if partial top-up)</label>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Total Cost (₱)</label>
+            <input type="number" id="costInput" step="0.01" min="0.01" required placeholder="e.g. 2150.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
           </div>
+        </div>
 
-          <button type="submit" class="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-500 font-medium text-sm rounded-lg transition-colors shadow">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+          <div class="space-y-1.5">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" id="isFullTank" checked class="w-4 h-4 text-brand-500 rounded bg-slate-900 border-slate-700 focus:ring-0" />
+              <span class="text-xs text-slate-300">Filled tank to full (recommended for accurate km/L)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" id="autoDownloadBackup" checked class="w-4 h-4 text-brand-500 rounded bg-slate-900 border-slate-700 focus:ring-0" />
+              <span class="text-xs text-emerald-400 font-medium">⚡ Auto-download backup file on save</span>
+            </label>
+          </div>
+          <button type="submit" class="sm:w-auto px-6 py-2.5 bg-brand-600 hover:bg-brand-500 font-semibold text-sm rounded-lg transition-colors shadow">
             Save Fill-up
           </button>
-        </form>
-      </section>
-
-      <!-- Chart Display -->
-      <section class="lg:col-span-2 bg-slate-800/60 p-6 rounded-2xl border border-slate-700/60 flex flex-col justify-between shadow-lg">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-semibold text-slate-200">📈 Fuel Efficiency Trend</h2>
-          <span class="text-xs text-slate-400">km/L (Higher is better)</span>
         </div>
-        <div class="relative w-full h-64">
-          <canvas id="efficiencyChart"></canvas>
-        </div>
-      </section>
-    </div>
+      </form>
+    </section>
 
     <!-- Summary Section (Weekly / Monthly) -->
     <section class="bg-slate-800/60 rounded-2xl border border-slate-700/60 overflow-hidden shadow-lg">
@@ -126,8 +122,8 @@
           <p class="text-xs text-slate-400">Periodic consumption, spending, and efficiency trends</p>
         </div>
         <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
-          <button id="viewWeeklyBtn" class="px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white">Weekly</button>
-          <button id="viewMonthlyBtn" class="px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white">Monthly</button>
+          <button type="button" id="viewWeeklyBtn" class="px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white">Weekly</button>
+          <button type="button" id="viewMonthlyBtn" class="px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white">Monthly</button>
         </div>
       </div>
 
@@ -157,7 +153,7 @@
     <section class="bg-slate-800/60 rounded-2xl border border-slate-700/60 overflow-hidden shadow-lg">
       <div class="p-4 sm:px-6 flex items-center justify-between border-b border-slate-700/60">
         <h2 class="text-lg font-semibold text-slate-200">📜 Fill-Up Records</h2>
-        <button id="clearBtn" class="text-xs text-rose-400 hover:text-rose-300 transition">Clear All Records</button>
+        <button type="button" id="clearBtn" class="text-xs text-rose-400 hover:text-rose-300 transition">Clear All Records</button>
       </div>
 
       <div class="overflow-x-auto">
@@ -188,12 +184,10 @@
   </div>
 
   <script>
-    // State
+    // --- Application State ---
     let logs = JSON.parse(localStorage.getItem('fuel_logs_ph') || '[]');
-    let summaryView = 'weekly'; // 'weekly' or 'monthly'
-    let chartInstance = null;
+    let summaryView = 'weekly';
 
-    // Set today as default date
     document.getElementById('dateInput').valueAsDate = new Date();
 
     function formatPHP(amount) {
@@ -203,11 +197,21 @@
       });
     }
 
-    // --- Date Formatting Helpers for Weekly / Monthly ---
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('notificationToast');
+      toast.innerText = message;
+      toast.className = isError 
+        ? 'p-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-all bg-rose-950/80 text-rose-300 border border-rose-800 block'
+        : 'p-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-all bg-emerald-950/80 text-emerald-300 border border-emerald-800 block';
+      setTimeout(() => {
+        toast.className = 'hidden';
+      }, 4000);
+    }
+
+    // --- Date Formatting Helpers ---
     function getWeekRangeLabel(dateStr) {
       const d = new Date(dateStr + 'T00:00:00');
       const day = d.getDay();
-      // Calculate Monday of current week
       const diff = d.getDate() - day + (day === 0 ? -6 : 1);
       const monday = new Date(d.setDate(diff));
       const sunday = new Date(monday);
@@ -222,9 +226,8 @@
       return d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
     }
 
-    // --- Calculations ---
+    // --- Metric Calculations ---
     function computeCalculations() {
-      // Sort chronologically by odometer
       logs.sort((a, b) => a.odometer - b.odometer);
 
       let prevOdo = null;
@@ -258,7 +261,6 @@
         return { ...log, deltaDist, economy, costPerDist, pricePerLiter };
       });
 
-      // Update KPI Top Cards
       document.getElementById('statTotalDist').innerText = `${totalDist.toLocaleString()} km`;
       document.getElementById('statTotalCost').innerText = formatPHP(totalCost);
 
@@ -276,7 +278,7 @@
       }
     }
 
-    // --- Summary Rendering (Weekly / Monthly) ---
+    // --- Summary Rendering ---
     function renderSummary() {
       const summaryBody = document.getElementById('summaryBody');
       const emptyMsg = document.getElementById('summaryEmptyMessage');
@@ -287,7 +289,6 @@
         return;
       }
 
-      // Group records
       const groups = {};
       logs.forEach(log => {
         const key = summaryView === 'weekly' 
@@ -319,7 +320,6 @@
       }
       emptyMsg.classList.add('hidden');
 
-      // Show newest period first
       periodKeys.reverse().forEach(key => {
         const item = groups[key];
         const avgEcon = item.validEconomies.length > 0 
@@ -344,7 +344,7 @@
       });
     }
 
-    // --- Table & Chart Rendering ---
+    // --- Table Rendering ---
     function renderTable() {
       const tbody = document.getElementById('historyBody');
       const empty = document.getElementById('emptyMessage');
@@ -380,57 +380,10 @@
           <td class="px-4 py-3 font-medium">${econDisplay}</td>
           <td class="px-4 py-3">${costPerDistDisplay}</td>
           <td class="px-4 py-3 text-right">
-            <button onclick="deleteRecord('${log.id}')" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 rounded hover:bg-rose-950/40 transition">Delete</button>
+            <button type="button" onclick="deleteRecord('${log.id}')" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 rounded hover:bg-rose-950/40 transition">Delete</button>
           </td>
         `;
         tbody.appendChild(tr);
-      });
-    }
-
-    function renderChart() {
-      const validPoints = logs.filter(l => l.economy !== null);
-      const labels = validPoints.map(l => l.date);
-      const data = validPoints.map(l => parseFloat(l.economy.toFixed(2)));
-
-      const ctx = document.getElementById('efficiencyChart').getContext('2d');
-
-      if (chartInstance) {
-        chartInstance.destroy();
-      }
-
-      chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Efficiency (km/L)',
-            data: data,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            fill: true,
-            tension: 0.3,
-            borderWidth: 2,
-            pointBackgroundColor: '#10b981',
-            pointRadius: 4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              grid: { color: 'rgba(255, 255, 255, 0.05)' },
-              ticks: { color: '#94a3b8' }
-            },
-            x: {
-              grid: { color: 'rgba(255, 255, 255, 0.05)' },
-              ticks: { color: '#94a3b8' }
-            }
-          },
-          plugins: {
-            legend: { display: false }
-          }
-        }
       });
     }
 
@@ -438,11 +391,90 @@
       computeCalculations();
       renderSummary();
       renderTable();
-      renderChart();
       localStorage.setItem('fuel_logs_ph', JSON.stringify(logs));
     }
 
-    // --- Form Submissions & Handlers ---
+    // ==========================================
+    // BELBROS-STYLE BACKUP & RESTORE METHODS
+    // ==========================================
+    function exportBackupJSON(isAuto = false) {
+      if (logs.length === 0) {
+        if (!isAuto) alert('No saved fuel records to export yet.');
+        return;
+      }
+      const dataStr = JSON.stringify(logs, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.href = url;
+      a.download = `fueltracker-backup-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 1000);
+      showToast(isAuto ? '✔ Auto-saved backup JSON!' : '✔ Backup JSON downloaded successfully!');
+    }
+
+    function handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!Array.isArray(data)) {
+            alert('Invalid backup file format.');
+            return;
+          }
+          if (data.length === 0) {
+            alert('The backup file is empty.');
+            return;
+          }
+
+          const confirmed = confirm(
+            `Import Backup File:\n\n` +
+            `Found ${data.length} record(s).\n\n` +
+            `• Click OK to merge these records into your fuel log.\n` +
+            `• Click Cancel to abort.`
+          );
+
+          if (!confirmed) {
+            event.target.value = '';
+            return;
+          }
+
+          let addedCount = 0;
+          let updatedCount = 0;
+
+          data.forEach(importedItem => {
+            if (!importedItem.odometer || !importedItem.volume) return;
+            const existingIndex = logs.findIndex(l => l.id === importedItem.id || (l.odometer === importedItem.odometer && l.date === importedItem.date));
+
+            if (existingIndex !== -1) {
+              logs[existingIndex] = importedItem;
+              updatedCount++;
+            } else {
+              logs.push(importedItem);
+              addedCount++;
+            }
+          });
+
+          syncAndRender();
+          showToast(`✔ Restored ${data.length} records (${addedCount} added, ${updatedCount} updated)!`);
+        } catch (err) {
+          alert('Error reading backup file.');
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- Form Submissions ---
     document.getElementById('entryForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const date = document.getElementById('dateInput').value;
@@ -468,6 +500,13 @@
 
       syncAndRender();
 
+      // Trigger automatic backup if enabled
+      if (document.getElementById('autoDownloadBackup').checked) {
+        exportBackupJSON(true);
+      } else {
+        showToast('✔ Fill-up record saved!');
+      }
+
       document.getElementById('volumeInput').value = '';
       document.getElementById('costInput').value = '';
     });
@@ -476,17 +515,19 @@
       if (confirm('Delete this record?')) {
         logs = logs.filter(l => l.id !== id);
         syncAndRender();
+        showToast('Record deleted.');
       }
     };
 
     document.getElementById('clearBtn').addEventListener('click', () => {
-      if (confirm('Are you sure you want to delete ALL logged fill-ups?')) {
+      if (confirm('Are you sure you want to delete ALL logged fill-ups? Make sure to download a Backup (JSON) first.')) {
         logs = [];
         syncAndRender();
+        showToast('All records cleared.');
       }
     });
 
-    // --- Weekly / Monthly Toggle ---
+    // --- Weekly / Monthly Toggles ---
     const weeklyBtn = document.getElementById('viewWeeklyBtn');
     const monthlyBtn = document.getElementById('viewMonthlyBtn');
 
@@ -502,59 +543,6 @@
       monthlyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white';
       weeklyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white';
       renderSummary();
-    });
-
-    // --- Backup & Restore (JSON) ---
-    document.getElementById('exportBtn').addEventListener('click', () => {
-      if (logs.length === 0) {
-        alert('No data to export.');
-        return;
-      }
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `fueltracker_backup_${new Date().toISOString().split('T')[0]}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-    });
-
-    document.getElementById('importInput').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        try {
-          const parsedData = JSON.parse(event.target.result);
-          if (!Array.isArray(parsedData)) {
-            throw new Error('Invalid JSON structure: Root must be an array.');
-          }
-
-          // Basic validation of fields
-          const isValid = parsedData.every(item => 
-            item.odometer !== undefined && 
-            item.volume !== undefined && 
-            item.cost !== undefined && 
-            item.date
-          );
-
-          if (!isValid) {
-            throw new Error('JSON entries do not match required fuel log format.');
-          }
-
-          if (confirm(`Found ${parsedData.length} fill-up records. Replace current records with backup?`)) {
-            logs = parsedData;
-            syncAndRender();
-            alert('Records successfully restored!');
-          }
-        } catch (err) {
-          alert('Error importing file: ' + err.message);
-        } finally {
-          e.target.value = ''; // Reset file input
-        }
-      };
-      reader.readAsText(file);
     });
 
     // Initial render
