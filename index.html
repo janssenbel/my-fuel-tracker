@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fuel Consumption & Cost Tracker (km/L, ₱)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#ecfdf5', 500: '#10b981', 600: '#059669', 700: '#047857' }
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen py-8 px-4 sm:px-6">
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Header & Backup / Restore Actions -->
+    <header class="flex flex-col md:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-brand-500">⛽ FuelTracker PH</h1>
+        <p class="text-slate-400 text-sm mt-1">Track mileage, fuel economy (km/L), and fuel expenses (₱)</p>
+      </div>
+      
+      <!-- Backup & Restore Buttons -->
+      <div class="flex items-center gap-2">
+        <button id="exportBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          📥 Backup (JSON)
+        </button>
+        <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer transition">
+          📤 Restore (JSON)
+          <input type="file" id="importInput" accept=".json" class="hidden" />
+        </label>
+      </div>
+    </header>
+
+    <!-- Top KPI Cards -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-slate-800/70 p-4 rounded-xl border border-slate-800">
+        <p class="text-xs text-slate-400 uppercase font-semibold">Avg Economy</p>
+        <p id="statAvgEconomy" class="text-2xl font-bold mt-1 text-brand-500">--</p>
+        <span class="text-xs text-slate-500">km/L (Higher is better)</span>
+      </div>
+      <div class="bg-slate-800/70 p-4 rounded-xl border border-slate-800">
+        <p class="text-xs text-slate-400 uppercase font-semibold">Total Distance</p>
+        <p id="statTotalDist" class="text-2xl font-bold mt-1 text-slate-100">0 km</p>
+        <span class="text-xs text-slate-500">Total Kilometers</span>
+      </div>
+      <div class="bg-slate-800/70 p-4 rounded-xl border border-slate-800">
+        <p class="text-xs text-slate-400 uppercase font-semibold">Total Spent</p>
+        <p id="statTotalCost" class="text-2xl font-bold mt-1 text-slate-100">₱0.00</p>
+        <span class="text-xs text-slate-500">Total Fuel Expense</span>
+      </div>
+      <div class="bg-slate-800/70 p-4 rounded-xl border border-slate-800">
+        <p class="text-xs text-slate-400 uppercase font-semibold">Avg Cost / Dist</p>
+        <p id="statAvgCostPerDist" class="text-2xl font-bold mt-1 text-slate-100">--</p>
+        <span class="text-xs text-slate-500">₱ / km</span>
+      </div>
+    </section>
+
+    <!-- Main Content: Form + Chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Log Entry Form -->
+      <section class="bg-slate-800/60 p-6 rounded-2xl border border-slate-700/60 shadow-lg">
+        <h2 class="text-lg font-semibold mb-4 text-slate-200">➕ Add Fill-Up</h2>
+        <form id="entryForm" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Date</label>
+            <input type="date" id="dateInput" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Odometer Reading (km)</label>
+            <input type="number" id="odometerInput" step="any" min="0" required placeholder="e.g. 15450" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Fuel Added (L)</label>
+              <input type="number" id="volumeInput" step="0.01" min="0.1" required placeholder="e.g. 35.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Total Cost (₱)</label>
+              <input type="number" id="costInput" step="0.01" min="0.1" required placeholder="e.g. 2150.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-1">
+            <input type="checkbox" id="isFullTank" checked class="w-4 h-4 text-brand-500 rounded bg-slate-900 border-slate-700 focus:ring-0" />
+            <label for="isFullTank" class="text-xs text-slate-300 select-none">Full Tank (Uncheck if partial top-up)</label>
+          </div>
+
+          <button type="submit" class="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-500 font-medium text-sm rounded-lg transition-colors shadow">
+            Save Fill-up
+          </button>
+        </form>
+      </section>
+
+      <!-- Chart Display -->
+      <section class="lg:col-span-2 bg-slate-800/60 p-6 rounded-2xl border border-slate-700/60 flex flex-col justify-between shadow-lg">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-semibold text-slate-200">📈 Fuel Efficiency Trend</h2>
+          <span class="text-xs text-slate-400">km/L (Higher is better)</span>
+        </div>
+        <div class="relative w-full h-64">
+          <canvas id="efficiencyChart"></canvas>
+        </div>
+      </section>
+    </div>
+
+    <!-- Summary Section (Weekly / Monthly) -->
+    <section class="bg-slate-800/60 rounded-2xl border border-slate-700/60 overflow-hidden shadow-lg">
+      <div class="p-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-700/60">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-200">📊 Aggregated Summary</h2>
+          <p class="text-xs text-slate-400">Periodic consumption, spending, and efficiency trends</p>
+        </div>
+        <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
+          <button id="viewWeeklyBtn" class="px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white">Weekly</button>
+          <button id="viewMonthlyBtn" class="px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white">Monthly</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 font-semibold border-b border-slate-700">
+            <tr>
+              <th class="px-4 py-3">Period</th>
+              <th class="px-4 py-3">Total Distance</th>
+              <th class="px-4 py-3">Total Fuel</th>
+              <th class="px-4 py-3">Total Spent</th>
+              <th class="px-4 py-3">Avg. Efficiency</th>
+              <th class="px-4 py-3">Avg. Cost / km</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody" class="divide-y divide-slate-800">
+            <!-- Dynamic Summary Rows -->
+          </tbody>
+        </table>
+      </div>
+      <div id="summaryEmptyMessage" class="p-6 text-center text-slate-500 text-sm hidden">
+        Not enough trip data to generate periodic summaries yet.
+      </div>
+    </section>
+
+    <!-- History Log Table -->
+    <section class="bg-slate-800/60 rounded-2xl border border-slate-700/60 overflow-hidden shadow-lg">
+      <div class="p-4 sm:px-6 flex items-center justify-between border-b border-slate-700/60">
+        <h2 class="text-lg font-semibold text-slate-200">📜 Fill-Up Records</h2>
+        <button id="clearBtn" class="text-xs text-rose-400 hover:text-rose-300 transition">Clear All Records</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 font-semibold border-b border-slate-700">
+            <tr>
+              <th class="px-4 py-3">Date</th>
+              <th class="px-4 py-3">Odometer</th>
+              <th class="px-4 py-3">Trip Dist.</th>
+              <th class="px-4 py-3">Fuel Added</th>
+              <th class="px-4 py-3">Price / L</th>
+              <th class="px-4 py-3">Total Paid</th>
+              <th class="px-4 py-3">Efficiency</th>
+              <th class="px-4 py-3">Cost / km</th>
+              <th class="px-4 py-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody" class="divide-y divide-slate-800">
+            <!-- Dynamic Rows -->
+          </tbody>
+        </table>
+      </div>
+      <div id="emptyMessage" class="p-8 text-center text-slate-500 text-sm">
+        No records yet. Log your first fill-up to start computing your km/L and costs.
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // State
+    let logs = JSON.parse(localStorage.getItem('fuel_logs_ph') || '[]');
+    let summaryView = 'weekly'; // 'weekly' or 'monthly'
+    let chartInstance = null;
+
+    // Set today as default date
+    document.getElementById('dateInput').valueAsDate = new Date();
+
+    function formatPHP(amount) {
+      return '₱' + Number(amount).toLocaleString('en-PH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    // --- Date Formatting Helpers for Weekly / Monthly ---
+    function getWeekRangeLabel(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const day = d.getDay();
+      // Calculate Monday of current week
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(d.setDate(diff));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      const f = (date) => date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+      return `${f(monday)} - ${f(sunday)}, ${monday.getFullYear()}`;
+    }
+
+    function getMonthLabel(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+    }
+
+    // --- Calculations ---
+    function computeCalculations() {
+      // Sort chronologically by odometer
+      logs.sort((a, b) => a.odometer - b.odometer);
+
+      let prevOdo = null;
+      let totalDist = 0;
+      let totalCost = 0;
+      let economyReadings = [];
+
+      logs = logs.map((log, index) => {
+        let deltaDist = 0;
+        let economy = null;
+        let costPerDist = null;
+        const pricePerLiter = log.volume > 0 ? (log.cost / log.volume) : 0;
+
+        if (index > 0 && prevOdo !== null) {
+          deltaDist = log.odometer - prevOdo;
+          if (deltaDist > 0) {
+            totalDist += deltaDist;
+
+            if (log.isFullTank) {
+              economy = deltaDist / log.volume;
+              economyReadings.push(economy);
+            }
+
+            costPerDist = log.cost / deltaDist;
+          }
+        }
+
+        totalCost += log.cost;
+        prevOdo = log.odometer;
+
+        return { ...log, deltaDist, economy, costPerDist, pricePerLiter };
+      });
+
+      // Update KPI Top Cards
+      document.getElementById('statTotalDist').innerText = `${totalDist.toLocaleString()} km`;
+      document.getElementById('statTotalCost').innerText = formatPHP(totalCost);
+
+      if (economyReadings.length > 0) {
+        const avgEcon = economyReadings.reduce((a, b) => a + b, 0) / economyReadings.length;
+        document.getElementById('statAvgEconomy').innerText = `${avgEcon.toFixed(2)} km/L`;
+      } else {
+        document.getElementById('statAvgEconomy').innerText = '--';
+      }
+
+      if (totalDist > 0) {
+        document.getElementById('statAvgCostPerDist').innerText = `${formatPHP(totalCost / totalDist)}/km`;
+      } else {
+        document.getElementById('statAvgCostPerDist').innerText = '--';
+      }
+    }
+
+    // --- Summary Rendering (Weekly / Monthly) ---
+    function renderSummary() {
+      const summaryBody = document.getElementById('summaryBody');
+      const emptyMsg = document.getElementById('summaryEmptyMessage');
+      summaryBody.innerHTML = '';
+
+      if (logs.length === 0) {
+        emptyMsg.classList.remove('hidden');
+        return;
+      }
+
+      // Group records
+      const groups = {};
+      logs.forEach(log => {
+        const key = summaryView === 'weekly' 
+          ? getWeekRangeLabel(log.date)
+          : getMonthLabel(log.date);
+
+        if (!groups[key]) {
+          groups[key] = {
+            period: key,
+            totalDistance: 0,
+            totalFuel: 0,
+            totalCost: 0,
+            validEconomies: []
+          };
+        }
+
+        groups[key].totalDistance += log.deltaDist || 0;
+        groups[key].totalFuel += log.volume || 0;
+        groups[key].totalCost += log.cost || 0;
+        if (log.economy) {
+          groups[key].validEconomies.push(log.economy);
+        }
+      });
+
+      const periodKeys = Object.keys(groups);
+      if (periodKeys.length === 0) {
+        emptyMsg.classList.remove('hidden');
+        return;
+      }
+      emptyMsg.classList.add('hidden');
+
+      // Show newest period first
+      periodKeys.reverse().forEach(key => {
+        const item = groups[key];
+        const avgEcon = item.validEconomies.length > 0 
+          ? (item.validEconomies.reduce((a, b) => a + b, 0) / item.validEconomies.length).toFixed(2) + ' km/L'
+          : (item.totalDistance > 0 && item.totalFuel > 0 ? (item.totalDistance / item.totalFuel).toFixed(2) + ' km/L' : '--');
+
+        const avgCostPerKm = item.totalDistance > 0 
+          ? formatPHP(item.totalCost / item.totalDistance) + '/km'
+          : '--';
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/40 transition';
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-semibold text-slate-200">${item.period}</td>
+          <td class="px-4 py-3">${item.totalDistance > 0 ? item.totalDistance.toLocaleString() + ' km' : '-'}</td>
+          <td class="px-4 py-3">${item.totalFuel.toFixed(2)} L</td>
+          <td class="px-4 py-3 font-medium text-emerald-400">${formatPHP(item.totalCost)}</td>
+          <td class="px-4 py-3 font-semibold text-brand-500">${avgEcon}</td>
+          <td class="px-4 py-3">${avgCostPerKm}</td>
+        `;
+        summaryBody.appendChild(tr);
+      });
+    }
+
+    // --- Table & Chart Rendering ---
+    function renderTable() {
+      const tbody = document.getElementById('historyBody');
+      const empty = document.getElementById('emptyMessage');
+      tbody.innerHTML = '';
+
+      if (logs.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      const displayLogs = [...logs].reverse();
+
+      displayLogs.forEach((log) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/40 transition';
+
+        const econDisplay = log.economy !== null
+          ? `<span class="text-brand-500 font-semibold">${log.economy.toFixed(2)} km/L</span>`
+          : '<span class="text-slate-600">-</span>';
+
+        const costPerDistDisplay = log.costPerDist !== null
+          ? `${formatPHP(log.costPerDist)}`
+          : '<span class="text-slate-600">-</span>';
+
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-medium text-slate-200">${log.date}</td>
+          <td class="px-4 py-3">${Number(log.odometer).toLocaleString()} km</td>
+          <td class="px-4 py-3">${log.deltaDist > 0 ? '+' + log.deltaDist.toLocaleString() + ' km' : '-'}</td>
+          <td class="px-4 py-3">${log.volume.toFixed(2)} L</td>
+          <td class="px-4 py-3 text-slate-400">${formatPHP(log.pricePerLiter)}/L</td>
+          <td class="px-4 py-3 font-medium text-emerald-400">${formatPHP(log.cost)}</td>
+          <td class="px-4 py-3 font-medium">${econDisplay}</td>
+          <td class="px-4 py-3">${costPerDistDisplay}</td>
+          <td class="px-4 py-3 text-right">
+            <button onclick="deleteRecord('${log.id}')" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 rounded hover:bg-rose-950/40 transition">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderChart() {
+      const validPoints = logs.filter(l => l.economy !== null);
+      const labels = validPoints.map(l => l.date);
+      const data = validPoints.map(l => parseFloat(l.economy.toFixed(2)));
+
+      const ctx = document.getElementById('efficiencyChart').getContext('2d');
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Efficiency (km/L)',
+            data: data,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.3,
+            borderWidth: 2,
+            pointBackgroundColor: '#10b981',
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8' }
+            },
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8' }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+
+    function syncAndRender() {
+      computeCalculations();
+      renderSummary();
+      renderTable();
+      renderChart();
+      localStorage.setItem('fuel_logs_ph', JSON.stringify(logs));
+    }
+
+    // --- Form Submissions & Handlers ---
+    document.getElementById('entryForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const date = document.getElementById('dateInput').value;
+      const odometer = parseFloat(document.getElementById('odometerInput').value);
+      const volume = parseFloat(document.getElementById('volumeInput').value);
+      const cost = parseFloat(document.getElementById('costInput').value);
+      const isFullTank = document.getElementById('isFullTank').checked;
+
+      if (logs.length > 0 && odometer <= Math.max(...logs.map(l => l.odometer))) {
+        if (!confirm('The odometer entered is lower than or equal to an earlier record. Proceed anyway?')) {
+          return;
+        }
+      }
+
+      logs.push({
+        id: Date.now().toString(),
+        date,
+        odometer,
+        volume,
+        cost,
+        isFullTank
+      });
+
+      syncAndRender();
+
+      document.getElementById('volumeInput').value = '';
+      document.getElementById('costInput').value = '';
+    });
+
+    window.deleteRecord = function(id) {
+      if (confirm('Delete this record?')) {
+        logs = logs.filter(l => l.id !== id);
+        syncAndRender();
+      }
+    };
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      if (confirm('Are you sure you want to delete ALL logged fill-ups?')) {
+        logs = [];
+        syncAndRender();
+      }
+    });
+
+    // --- Weekly / Monthly Toggle ---
+    const weeklyBtn = document.getElementById('viewWeeklyBtn');
+    const monthlyBtn = document.getElementById('viewMonthlyBtn');
+
+    weeklyBtn.addEventListener('click', () => {
+      summaryView = 'weekly';
+      weeklyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white';
+      monthlyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white';
+      renderSummary();
+    });
+
+    monthlyBtn.addEventListener('click', () => {
+      summaryView = 'monthly';
+      monthlyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white';
+      weeklyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white';
+      renderSummary();
+    });
+
+    // --- Backup & Restore (JSON) ---
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      if (logs.length === 0) {
+        alert('No data to export.');
+        return;
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `fueltracker_backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    });
+
+    document.getElementById('importInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const parsedData = JSON.parse(event.target.result);
+          if (!Array.isArray(parsedData)) {
+            throw new Error('Invalid JSON structure: Root must be an array.');
+          }
+
+          // Basic validation of fields
+          const isValid = parsedData.every(item => 
+            item.odometer !== undefined && 
+            item.volume !== undefined && 
+            item.cost !== undefined && 
+            item.date
+          );
+
+          if (!isValid) {
+            throw new Error('JSON entries do not match required fuel log format.');
+          }
+
+          if (confirm(`Found ${parsedData.length} fill-up records. Replace current records with backup?`)) {
+            logs = parsedData;
+            syncAndRender();
+            alert('Records successfully restored!');
+          }
+        } catch (err) {
+          alert('Error importing file: ' + err.message);
+        } finally {
+          e.target.value = ''; // Reset file input
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // Initial render
+    syncAndRender();
+  </script>
+</body>
+</html>
