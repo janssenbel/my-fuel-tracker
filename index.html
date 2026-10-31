@@ -22,14 +22,14 @@
 <body class="bg-slate-900 text-slate-100 min-h-screen py-8 px-4 sm:px-6">
   <div class="max-w-5xl mx-auto space-y-6">
 
-    <!-- Header & BelBros-Style Backup/Restore Actions -->
+    <!-- Header & Backup / Restore Actions -->
     <header class="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-800">
       <div>
-        <h1 class="text-3xl font-bold tracking-tight text-brand-500">⛽ Fuel Tracker PH</h1>
-        <p class="text-slate-400 text-sm mt-1">Track mileage, fuel economy (km/L), and fuel expenses (₱)</p>
+        <h1 class="text-3xl font-bold tracking-tight text-brand-500">⛽ FuelTracker PH</h1>
+        <p class="text-slate-400 text-sm mt-1">Multi-vehicle mileage, fuel economy (km/L), and expense tracker (₱)</p>
       </div>
       
-      <!-- Backup & Restore Buttons (Exact BelBros Setup) -->
+      <!-- BelBros-Style Backup & Restore -->
       <div class="flex items-center gap-2">
         <button type="button" onclick="exportBackupJSON()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition shadow cursor-pointer">
           📥 Backup (JSON)
@@ -45,6 +45,20 @@
 
     <!-- Notification Toast -->
     <div id="notificationToast" class="hidden p-3 rounded-xl text-xs font-semibold flex items-center justify-between transition-all"></div>
+
+    <!-- Active Vehicle Selector & Garage Manager Bar -->
+    <section class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">🚘 Active Filter:</span>
+        <select id="vehicleFilterSelect" onchange="changeActiveVehicleFilter(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-semibold text-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-64">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <button type="button" onclick="openVehicleModal()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 transition flex items-center gap-1.5 cursor-pointer">
+        ⚙️ Manage Vehicles (<span id="vehicleCountBadge">1</span>)
+      </button>
+    </section>
 
     <!-- Top KPI Cards -->
     <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -74,7 +88,14 @@
     <section class="bg-slate-800/60 p-6 rounded-2xl border border-slate-700/60 shadow-lg">
       <h2 class="text-lg font-semibold mb-4 text-slate-200">➕ Add Fill-Up Record</h2>
       <form id="entryForm" class="space-y-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Vehicle</label>
+            <select id="formVehicleSelect" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
           <div>
             <label class="block text-xs font-medium text-slate-400 mb-1">Date</label>
             <input type="date" id="dateInput" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-100" />
@@ -107,7 +128,7 @@
               <span class="text-xs text-emerald-400 font-medium">⚡ Auto-download backup file on save</span>
             </label>
           </div>
-          <button type="submit" class="sm:w-auto px-6 py-2.5 bg-brand-600 hover:bg-brand-500 font-semibold text-sm rounded-lg transition-colors shadow">
+          <button type="submit" class="sm:w-auto px-6 py-2.5 bg-brand-600 hover:bg-brand-500 font-semibold text-sm rounded-lg transition-colors shadow cursor-pointer">
             Save Fill-up
           </button>
         </div>
@@ -122,8 +143,8 @@
           <p class="text-xs text-slate-400">Periodic consumption, spending, and efficiency trends</p>
         </div>
         <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
-          <button type="button" id="viewWeeklyBtn" class="px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white">Weekly</button>
-          <button type="button" id="viewMonthlyBtn" class="px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white">Monthly</button>
+          <button type="button" id="viewWeeklyBtn" class="px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white cursor-pointer">Weekly</button>
+          <button type="button" id="viewMonthlyBtn" class="px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white cursor-pointer">Monthly</button>
         </div>
       </div>
 
@@ -145,7 +166,7 @@
         </table>
       </div>
       <div id="summaryEmptyMessage" class="p-6 text-center text-slate-500 text-sm hidden">
-        Not enough trip data to generate periodic summaries yet.
+        Not enough trip data for the selected vehicle filter to generate periodic summaries yet.
       </div>
     </section>
 
@@ -153,13 +174,14 @@
     <section class="bg-slate-800/60 rounded-2xl border border-slate-700/60 overflow-hidden shadow-lg">
       <div class="p-4 sm:px-6 flex items-center justify-between border-b border-slate-700/60">
         <h2 class="text-lg font-semibold text-slate-200">📜 Fill-Up Records</h2>
-        <button type="button" id="clearBtn" class="text-xs text-rose-400 hover:text-rose-300 transition">Clear All Records</button>
+        <button type="button" id="clearBtn" class="text-xs text-rose-400 hover:text-rose-300 transition cursor-pointer">Clear All Records</button>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left text-sm text-slate-300">
           <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 font-semibold border-b border-slate-700">
             <tr>
+              <th class="px-4 py-3">Vehicle</th>
               <th class="px-4 py-3">Date</th>
               <th class="px-4 py-3">Odometer</th>
               <th class="px-4 py-3">Trip Dist.</th>
@@ -177,16 +199,52 @@
         </table>
       </div>
       <div id="emptyMessage" class="p-8 text-center text-slate-500 text-sm">
-        No records yet. Log your first fill-up to start computing your km/L and costs.
+        No records found. Log your first fill-up to start tracking!
       </div>
     </section>
 
   </div>
 
+  <!-- VEHICLE MANAGEMENT MODAL -->
+  <div id="vehicleModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+        <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">🚗 Manage Vehicles</h3>
+        <button type="button" onclick="closeVehicleModal()" class="text-slate-400 hover:text-white text-lg font-bold cursor-pointer">✕</button>
+      </div>
+
+      <!-- Add Vehicle Form -->
+      <form id="addVehicleForm" onsubmit="handleAddNewVehicle(event)" class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700/70 space-y-3">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block">➕ Add New Vehicle</span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <input type="text" id="newVehicleName" placeholder="Name / Model (e.g. Fortuner)" required class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-brand-500" />
+          <input type="text" id="newVehiclePlate" placeholder="Plate # (e.g. ABC 1234)" required class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono" />
+        </div>
+        <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs py-2 rounded-lg transition shadow cursor-pointer">
+          Add Vehicle to Garage
+        </button>
+      </form>
+
+      <!-- Vehicle List -->
+      <div class="space-y-2 max-h-60 overflow-y-auto pr-1" id="vehicleListContainer">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
   <script>
     // --- Application State ---
+    let defaultVehicles = [{ id: 'veh_default', name: 'Primary Vehicle', plate: 'CAR-01' }];
+    let vehicles = JSON.parse(localStorage.getItem('fuel_vehicles_ph') || JSON.stringify(defaultVehicles));
     let logs = JSON.parse(localStorage.getItem('fuel_logs_ph') || '[]');
+    let activeVehicleFilter = localStorage.getItem('fuel_active_vehicle_filter') || 'all';
     let summaryView = 'weekly';
+
+    // Ensure all existing logs map to a vehicle
+    logs = logs.map(log => ({
+      ...log,
+      vehicleId: log.vehicleId || vehicles[0].id
+    }));
 
     document.getElementById('dateInput').valueAsDate = new Date();
 
@@ -208,6 +266,123 @@
       }, 4000);
     }
 
+    // --- Vehicle Helpers ---
+    function getVehicleById(id) {
+      return vehicles.find(v => v.id === id) || { name: 'Unknown Vehicle', plate: '—' };
+    }
+
+    function renderVehicleSelectors() {
+      const filterSelect = document.getElementById('vehicleFilterSelect');
+      const formSelect = document.getElementById('formVehicleSelect');
+      const badge = document.getElementById('vehicleCountBadge');
+
+      if (badge) badge.innerText = vehicles.length;
+
+      filterSelect.innerHTML = `<option value="all">🚗 All Vehicles (Combined)</option>`;
+      vehicles.forEach(v => {
+        filterSelect.innerHTML += `<option value="${v.id}">🚘 [${v.plate}] ${v.name}</option>`;
+      });
+      filterSelect.value = activeVehicleFilter;
+
+      formSelect.innerHTML = '';
+      vehicles.forEach(v => {
+        formSelect.innerHTML += `<option value="${v.id}">[${v.plate}] ${v.name}</option>`;
+      });
+
+      if (activeVehicleFilter !== 'all' && vehicles.some(v => v.id === activeVehicleFilter)) {
+        formSelect.value = activeVehicleFilter;
+      }
+    }
+
+    function changeActiveVehicleFilter(val) {
+      activeVehicleFilter = val;
+      localStorage.setItem('fuel_active_vehicle_filter', val);
+      const formSelect = document.getElementById('formVehicleSelect');
+      if (val !== 'all' && formSelect) {
+        formSelect.value = val;
+      }
+      syncAndRender();
+    }
+
+    function openVehicleModal() {
+      renderVehicleModalList();
+      document.getElementById('vehicleModal').classList.remove('hidden');
+    }
+
+    function closeVehicleModal() {
+      document.getElementById('vehicleModal').classList.add('hidden');
+    }
+
+    function renderVehicleModalList() {
+      const listContainer = document.getElementById('vehicleListContainer');
+      listContainer.innerHTML = '';
+
+      vehicles.forEach(v => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs';
+        row.innerHTML = `
+          <div>
+            <span class="font-bold text-slate-100">${v.name}</span>
+            <span class="ml-1.5 font-mono text-[11px] px-2 py-0.5 rounded bg-yellow-400/20 text-yellow-300 border border-yellow-400/30">${v.plate}</span>
+          </div>
+          ${vehicles.length > 1 ? `
+            <button type="button" onclick="deleteVehicle('${v.id}')" class="text-rose-400 hover:text-rose-300 font-semibold px-2 py-1 rounded hover:bg-rose-950/40 transition cursor-pointer">
+              Delete
+            </button>
+          ` : '<span class="text-[10px] text-slate-500 italic">Primary</span>'}
+        `;
+        listContainer.appendChild(row);
+      });
+    }
+
+    function handleAddNewVehicle(e) {
+      e.preventDefault();
+      const name = document.getElementById('newVehicleName').value.trim();
+      const plate = document.getElementById('newVehiclePlate').value.trim().toUpperCase();
+
+      if (!name || !plate) return;
+
+      const newVeh = {
+        id: 'veh_' + Date.now(),
+        name,
+        plate
+      };
+
+      vehicles.push(newVeh);
+      localStorage.setItem('fuel_vehicles_ph', JSON.stringify(vehicles));
+      
+      document.getElementById('newVehicleName').value = '';
+      document.getElementById('newVehiclePlate').value = '';
+
+      renderVehicleSelectors();
+      renderVehicleModalList();
+      showToast(`✔ Added ${newVeh.name} (${newVeh.plate}) to your garage!`);
+    }
+
+    function deleteVehicle(vehId) {
+      if (vehicles.length <= 1) {
+        alert('You must have at least one vehicle.');
+        return;
+      }
+
+      const count = logs.filter(l => l.vehicleId === vehId).length;
+      const veh = getVehicleById(vehId);
+
+      if (confirm(`Delete "${veh.name}" [${veh.plate}]? ${count > 0 ? `\nWarning: This will also remove ${count} fill-up record(s) linked to this vehicle.` : ''}`)) {
+        vehicles = vehicles.filter(v => v.id !== vehId);
+        logs = logs.filter(l => l.vehicleId !== vehId);
+        if (activeVehicleFilter === vehId) {
+          activeVehicleFilter = 'all';
+          localStorage.setItem('fuel_active_vehicle_filter', 'all');
+        }
+        localStorage.setItem('fuel_vehicles_ph', JSON.stringify(vehicles));
+        renderVehicleSelectors();
+        renderVehicleModalList();
+        syncAndRender();
+        showToast('Vehicle removed.');
+      }
+    }
+
     // --- Date Formatting Helpers ---
     function getWeekRangeLabel(dateStr) {
       const d = new Date(dateStr + 'T00:00:00');
@@ -226,39 +401,59 @@
       return d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
     }
 
-    // --- Metric Calculations ---
+    // --- Metric Calculations (Per-Vehicle Isolation) ---
     function computeCalculations() {
-      logs.sort((a, b) => a.odometer - b.odometer);
+      const logsByVehicle = {};
+      vehicles.forEach(v => { logsByVehicle[v.id] = []; });
 
-      let prevOdo = null;
+      logs.forEach(log => {
+        const vid = log.vehicleId || vehicles[0].id;
+        if (!logsByVehicle[vid]) logsByVehicle[vid] = [];
+        logsByVehicle[vid].push(log);
+      });
+
+      let calculatedLogs = [];
+
+      Object.keys(logsByVehicle).forEach(vid => {
+        let carLogs = logsByVehicle[vid];
+        carLogs.sort((a, b) => a.odometer - b.odometer);
+
+        let prevOdo = null;
+        carLogs = carLogs.map((log, index) => {
+          let deltaDist = 0;
+          let economy = null;
+          let costPerDist = null;
+          const pricePerLiter = log.volume > 0 ? (log.cost / log.volume) : 0;
+
+          if (index > 0 && prevOdo !== null) {
+            deltaDist = log.odometer - prevOdo;
+            if (deltaDist > 0) {
+              if (log.isFullTank) {
+                economy = deltaDist / log.volume;
+              }
+              costPerDist = log.cost / deltaDist;
+            }
+          }
+
+          prevOdo = log.odometer;
+          return { ...log, deltaDist, economy, costPerDist, pricePerLiter };
+        });
+
+        calculatedLogs = calculatedLogs.concat(carLogs);
+      });
+
+      const filteredLogs = activeVehicleFilter === 'all' 
+        ? calculatedLogs 
+        : calculatedLogs.filter(l => l.vehicleId === activeVehicleFilter);
+
       let totalDist = 0;
       let totalCost = 0;
       let economyReadings = [];
 
-      logs = logs.map((log, index) => {
-        let deltaDist = 0;
-        let economy = null;
-        let costPerDist = null;
-        const pricePerLiter = log.volume > 0 ? (log.cost / log.volume) : 0;
-
-        if (index > 0 && prevOdo !== null) {
-          deltaDist = log.odometer - prevOdo;
-          if (deltaDist > 0) {
-            totalDist += deltaDist;
-
-            if (log.isFullTank) {
-              economy = deltaDist / log.volume;
-              economyReadings.push(economy);
-            }
-
-            costPerDist = log.cost / deltaDist;
-          }
-        }
-
+      filteredLogs.forEach(log => {
+        if (log.deltaDist > 0) totalDist += log.deltaDist;
         totalCost += log.cost;
-        prevOdo = log.odometer;
-
-        return { ...log, deltaDist, economy, costPerDist, pricePerLiter };
+        if (log.economy) economyReadings.push(log.economy);
       });
 
       document.getElementById('statTotalDist').innerText = `${totalDist.toLocaleString()} km`;
@@ -276,21 +471,23 @@
       } else {
         document.getElementById('statAvgCostPerDist').innerText = '--';
       }
+
+      return filteredLogs;
     }
 
     // --- Summary Rendering ---
-    function renderSummary() {
+    function renderSummary(activeLogs) {
       const summaryBody = document.getElementById('summaryBody');
       const emptyMsg = document.getElementById('summaryEmptyMessage');
       summaryBody.innerHTML = '';
 
-      if (logs.length === 0) {
+      if (activeLogs.length === 0) {
         emptyMsg.classList.remove('hidden');
         return;
       }
 
       const groups = {};
-      logs.forEach(log => {
+      activeLogs.forEach(log => {
         const key = summaryView === 'weekly' 
           ? getWeekRangeLabel(log.date)
           : getMonthLabel(log.date);
@@ -345,20 +542,21 @@
     }
 
     // --- Table Rendering ---
-    function renderTable() {
+    function renderTable(activeLogs) {
       const tbody = document.getElementById('historyBody');
       const empty = document.getElementById('emptyMessage');
       tbody.innerHTML = '';
 
-      if (logs.length === 0) {
+      if (activeLogs.length === 0) {
         empty.classList.remove('hidden');
         return;
       }
       empty.classList.add('hidden');
 
-      const displayLogs = [...logs].reverse();
+      const displayLogs = [...activeLogs].sort((a, b) => new Date(b.date) - new Date(a.date) || b.odometer - a.odometer);
 
       displayLogs.forEach((log) => {
+        const veh = getVehicleById(log.vehicleId);
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-800/40 transition';
 
@@ -371,6 +569,12 @@
           : '<span class="text-slate-600">-</span>';
 
         tr.innerHTML = `
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-slate-800 border border-slate-700 text-yellow-300">
+              ${veh.plate}
+            </span>
+            <span class="text-xs text-slate-400 block sm:inline sm:ml-1">${veh.name}</span>
+          </td>
           <td class="px-4 py-3 font-medium text-slate-200">${log.date}</td>
           <td class="px-4 py-3">${Number(log.odometer).toLocaleString()} km</td>
           <td class="px-4 py-3">${log.deltaDist > 0 ? '+' + log.deltaDist.toLocaleString() + ' km' : '-'}</td>
@@ -380,7 +584,7 @@
           <td class="px-4 py-3 font-medium">${econDisplay}</td>
           <td class="px-4 py-3">${costPerDistDisplay}</td>
           <td class="px-4 py-3 text-right">
-            <button type="button" onclick="deleteRecord('${log.id}')" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 rounded hover:bg-rose-950/40 transition">Delete</button>
+            <button type="button" onclick="deleteRecord('${log.id}')" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 rounded hover:bg-rose-950/40 transition cursor-pointer">Delete</button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -388,21 +592,27 @@
     }
 
     function syncAndRender() {
-      computeCalculations();
-      renderSummary();
-      renderTable();
+      const activeLogs = computeCalculations();
+      renderSummary(activeLogs);
+      renderTable(activeLogs);
       localStorage.setItem('fuel_logs_ph', JSON.stringify(logs));
+      localStorage.setItem('fuel_vehicles_ph', JSON.stringify(vehicles));
     }
 
     // ==========================================
     // BELBROS-STYLE BACKUP & RESTORE METHODS
     // ==========================================
     function exportBackupJSON(isAuto = false) {
-      if (logs.length === 0) {
-        if (!isAuto) alert('No saved fuel records to export yet.');
+      if (logs.length === 0 && vehicles.length <= 1) {
+        if (!isAuto) alert('No fuel records to export yet.');
         return;
       }
-      const dataStr = JSON.stringify(logs, null, 2);
+      const backupPayload = {
+        version: 2,
+        vehicles: vehicles,
+        logs: logs
+      };
+      const dataStr = JSON.stringify(backupPayload, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -426,18 +636,27 @@
       reader.onload = function(e) {
         try {
           const data = JSON.parse(e.target.result);
-          if (!Array.isArray(data)) {
+          let importedLogs = [];
+          let importedVehicles = [];
+
+          if (Array.isArray(data)) {
+            importedLogs = data;
+          } else if (data && typeof data === 'object') {
+            importedLogs = data.logs || [];
+            importedVehicles = data.vehicles || [];
+          } else {
             alert('Invalid backup file format.');
             return;
           }
-          if (data.length === 0) {
+
+          if (importedLogs.length === 0 && importedVehicles.length === 0) {
             alert('The backup file is empty.');
             return;
           }
 
           const confirmed = confirm(
             `Import Backup File:\n\n` +
-            `Found ${data.length} record(s).\n\n` +
+            `Found ${importedVehicles.length} vehicle(s) and ${importedLogs.length} fill-up record(s).\n\n` +
             `• Click OK to merge these records into your fuel log.\n` +
             `• Click Cancel to abort.`
           );
@@ -447,24 +666,37 @@
             return;
           }
 
+          importedVehicles.forEach(iv => {
+            if (!vehicles.some(v => v.id === iv.id || v.plate === iv.plate)) {
+              vehicles.push(iv);
+            }
+          });
+
           let addedCount = 0;
           let updatedCount = 0;
 
-          data.forEach(importedItem => {
+          importedLogs.forEach(importedItem => {
             if (!importedItem.odometer || !importedItem.volume) return;
-            const existingIndex = logs.findIndex(l => l.id === importedItem.id || (l.odometer === importedItem.odometer && l.date === importedItem.date));
+            const targetVehicleId = importedItem.vehicleId || vehicles[0].id;
+            const existingIndex = logs.findIndex(l => l.id === importedItem.id || (l.odometer === importedItem.odometer && l.date === importedItem.date && l.vehicleId === targetVehicleId));
+
+            const recordToSave = {
+              ...importedItem,
+              vehicleId: targetVehicleId
+            };
 
             if (existingIndex !== -1) {
-              logs[existingIndex] = importedItem;
+              logs[existingIndex] = recordToSave;
               updatedCount++;
             } else {
-              logs.push(importedItem);
+              logs.push(recordToSave);
               addedCount++;
             }
           });
 
+          renderVehicleSelectors();
           syncAndRender();
-          showToast(`✔ Restored ${data.length} records (${addedCount} added, ${updatedCount} updated)!`);
+          showToast(`✔ Restored ${importedLogs.length} records (${addedCount} added, ${updatedCount} updated)!`);
         } catch (err) {
           alert('Error reading backup file.');
         } finally {
@@ -477,20 +709,23 @@
     // --- Form Submissions ---
     document.getElementById('entryForm').addEventListener('submit', (e) => {
       e.preventDefault();
+      const vehicleId = document.getElementById('formVehicleSelect').value;
       const date = document.getElementById('dateInput').value;
       const odometer = parseFloat(document.getElementById('odometerInput').value);
       const volume = parseFloat(document.getElementById('volumeInput').value);
       const cost = parseFloat(document.getElementById('costInput').value);
       const isFullTank = document.getElementById('isFullTank').checked;
 
-      if (logs.length > 0 && odometer <= Math.max(...logs.map(l => l.odometer))) {
-        if (!confirm('The odometer entered is lower than or equal to an earlier record. Proceed anyway?')) {
+      const carExistingLogs = logs.filter(l => l.vehicleId === vehicleId);
+      if (carExistingLogs.length > 0 && odometer <= Math.max(...carExistingLogs.map(l => l.odometer))) {
+        if (!confirm('The odometer entered is lower than or equal to an earlier record for this vehicle. Proceed anyway?')) {
           return;
         }
       }
 
       logs.push({
         id: Date.now().toString(),
+        vehicleId,
         date,
         odometer,
         volume,
@@ -500,7 +735,6 @@
 
       syncAndRender();
 
-      // Trigger automatic backup if enabled
       if (document.getElementById('autoDownloadBackup').checked) {
         exportBackupJSON(true);
       } else {
@@ -533,19 +767,20 @@
 
     weeklyBtn.addEventListener('click', () => {
       summaryView = 'weekly';
-      weeklyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white';
-      monthlyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white';
-      renderSummary();
+      weeklyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white cursor-pointer';
+      monthlyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white cursor-pointer';
+      syncAndRender();
     });
 
     monthlyBtn.addEventListener('click', () => {
       summaryView = 'monthly';
-      monthlyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white';
-      weeklyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white';
-      renderSummary();
+      monthlyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition bg-brand-600 text-white cursor-pointer';
+      weeklyBtn.className = 'px-3 py-1 rounded text-xs font-medium transition text-slate-400 hover:text-white cursor-pointer';
+      syncAndRender();
     });
 
-    // Initial render
+    // Launch Initialization
+    renderVehicleSelectors();
     syncAndRender();
   </script>
 </body>
